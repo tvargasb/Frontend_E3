@@ -4,6 +4,6 @@ publish = "build"
 
 [[redirects]]
 from = "/api/*"
-to = "https://mi-back.onrender.com/:splat"
+to = "https://html3-back-api.onrender.com"
 status = 200
 force = true
