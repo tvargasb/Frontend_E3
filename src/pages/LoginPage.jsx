@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
 import '../assets/styles/Forms.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+
 function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,8 +13,9 @@ function LoginPage() {
   const { login } = useAuth();
   const socket = useSocket();
 
-  // websocket
   useEffect(() => {
+    if (!socket) return;
+
     function onConnect() {
       console.log('Socket conectado:', socket.id);
       setSocketId(socket.id);
@@ -34,8 +36,8 @@ function LoginPage() {
     event.preventDefault();
     setError(null);
 
-    if (!socketId) {
-      setError("Conectando al servidor, por favor espera...");
+    if (!email || !password) {
+      setError("Email y contraseña son obligatorios.");
       return;
     }
 
@@ -45,7 +47,7 @@ function LoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password, socketId: socketId }),
+        body: JSON.stringify({ email, password, socketId }),
       });
 
       const data = await response.json();
@@ -55,10 +57,9 @@ function LoginPage() {
       }
 
       login(data.token, data.jugador);
-      
-
     } catch (err) {
-      setError(err.message);
+      console.error(err);
+      setError(err.message || 'Error al iniciar sesión.');
     }
   };
 
@@ -67,6 +68,13 @@ function LoginPage() {
       <form onSubmit={handleSubmit}>
         <h2>Iniciar Sesión</h2>
         {error && <p className="error-message">{error}</p>}
+
+        {!socketId && (
+          <p className="info-message">
+            Conectando al servidor en segundo plano...
+          </p>
+        )}
+
         <div>
           <label>Email:</label>
           <input
@@ -75,6 +83,7 @@ function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
+
         <div>
           <label>Contraseña:</label>
           <input
@@ -83,12 +92,15 @@ function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
           />
         </div>
-        <button type="submit" disabled={!socketId}>
-          {socketId ? 'Entrar' : 'Conectando...'}
+
+        <button
+          type="submit"
+          disabled={!email || !password}
+        >
+          Entrar
         </button>
       </form>
     </div>
-    
   );
 }
 
