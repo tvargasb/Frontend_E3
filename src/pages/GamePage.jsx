@@ -117,11 +117,13 @@ function GamePage() {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      if (!partidaResponse.ok) {
-        const data = await partidaResponse.json();
-        throw new Error(data.error || 'No se pudo cargar la partida.');
-      }
+      
       const partidaData = await partidaResponse.json();
+      
+      if (!partidaResponse.ok) {
+        throw new Error(partidaData.error || 'No se pudo cargar la partida.');
+      }
+      
       setPartida(partidaData);
 
       const misionResponse = await fetch(`${API_BASE_URL}/misiones?partidaId=${partidaId}&jugadorId=${user.jugadorId}`, {
