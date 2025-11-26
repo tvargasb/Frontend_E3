@@ -124,7 +124,7 @@ function GamePage() {
         throw new Error(partidaData.error || 'No se pudo cargar la partida.');
       }
       
-      setPartida(partidaData);
+      setPartida(partidaData);      
 
       const misionResponse = await fetch(`${API_BASE_URL}/misiones?partidaId=${partidaId}&jugadorId=${user.jugadorId}`, {
         method: 'GET',
@@ -145,19 +145,33 @@ function GamePage() {
   const enviarJugada = async (tipo, datos) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/jugadas`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          partidaId: Number(partidaId),
-          jugadorId: user.jugadorId,
-          tipoJugada: tipo,
-          datosJugada: datos
-        })
-      });
+      const response = await fetch(`${API_BASE_URL}/jugadas`, { ... });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || `Error al ${tipo}`);
+      }
+  
+      if (tipo === 'ATACAR' && data.resultado?.combate) {
+        playSword();
+        setResultadoCombate(data.resultado.combate);
+      }
+  
+      if (data.gameOver) {
+        playVictory();
+        setGanador(data.ganadorName || user.name);
+        return;
+      }
+  
+      setTerritorioOrigen(null);
+      setTerritorioDestino(null);
+  
+      await fetchGameState();
+  
+    } catch (err) {
+      setError(err.message); 
+    }
+  };
+  
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.error || `Error al ${tipo}`);
