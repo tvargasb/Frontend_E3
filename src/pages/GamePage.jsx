@@ -436,7 +436,7 @@ function GamePage() {
   const territoriosEnMapa = estadosTerritorios.map((estado) => {
     return {
       territorioId: estado.territorioId,
-      nombre: estado.Territorio?.name || 'Territorio desconocido',
+      name: estado.Territorio?.name || 'Territorio desconocido',
       sistema: estado.Territorio?.sistemaGalactico || 'Sistema desconocido',
       jugadorId: estado.jugadorId,
       jugadorNombre: jugadoresPorId[estado.jugadorId]?.name || 'Jugador desconocido',
