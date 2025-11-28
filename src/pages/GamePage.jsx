@@ -105,6 +105,53 @@ function GamePage() {
   const fetchGameState = useCallback(async () => {
     setLoading(true); 
     setError(null);   
+  
+    if (!token || !partidaId || !user?.jugadorId) {
+      if (!token) setError("Error de autenticación. Intenta recargar.");
+      setLoading(false);
+      return;
+    }
+  
+    try {
+      const partidaResponse = await fetch(`${API_BASE_URL}/partidas/${partidaId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+  
+      const partidaData = await partidaResponse.json();
+  
+      if (!partidaResponse.ok) {
+        throw new Error(partidaData.error || 'No se pudo cargar la partida.');
+      }
+  
+      setPartida(partidaData);
+  
+      // Misión asignada a este jugador en esta partida
+      const misionResponse = await fetch(
+        `${API_BASE_URL}/misiones?partidaId=${partidaId}&jugadorId=${user.jugadorId}`,
+        {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        }
+      );
+  
+      if (misionResponse.ok) {
+        const misionData = await misionResponse.json();
+        if (Array.isArray(misionData) && misionData.length > 0) {
+          setMiMision(misionData[0]);
+        } else {
+          setMiMision(null);
+        }
+      } else {
+        setMiMision(null);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false); 
+    }
+  }, [token, partidaId, user?.jugadorId]);
+     
 
     if (!token || !partidaId || !user?.jugadorId) {
       if (!token) setError("Error de autenticación. Intenta recargar.");
@@ -145,8 +192,22 @@ function GamePage() {
   const enviarJugada = async (tipo, datos) => {
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/jugadas`, { ... });
+      const response = await fetch(`${API_BASE_URL}/jugadas`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          partidaId: Number(partidaId),
+          jugadorId: user.jugadorId,
+          tipoJugada: tipo,
+          datosJugada: datos
+        })
+      });
+  
       const data = await response.json();
+  
       if (!response.ok) {
         throw new Error(data.error || `Error al ${tipo}`);
       }
@@ -166,11 +227,12 @@ function GamePage() {
       setTerritorioDestino(null);
   
       await fetchGameState();
-  
     } catch (err) {
       setError(err.message); 
     }
   };
+  
+  
   
       const data = await response.json();
       if (!response.ok) {
@@ -247,41 +309,56 @@ useEffect(() => {
   }, [turnoNotificacion]);
   
   // Configuración de listeners de WebSockets
-  useEffect(() => {
-    if (!socket) return; 
+  // Configuración de listeners de WebSockets
+useEffect(() => {
+  if (!socket) return; 
 
-    if (user?.jugadorId) {
-        socket.emit('register', user.jugadorId);
+  // Registrar el socket con el id de jugador (ya lo usabas)
+  if (user?.jugadorId) {
+    socket.emit('register', user.jugadorId);
+    console.log(`Socket registrado para jugador ${user.jugadorId}`);
+  }
+
+  // Unirse a la sala específica de esta partida
+  if (partidaId) {
+    socket.emit('join_partida', { partidaId: Number(partidaId) });
+    console.log(`Socket unido a sala partida:${partidaId}`);
+  }
+
+  const handleEstadoActualizado = (payload) => {
+    console.log("WebSocket: Estado actualizado. Recargando datos...", payload);
+    // Si quieres, puedes filtrar por partidaId aquí
+    fetchGameState(); 
+  };
+
+  const handleErrorJuego = (errorMsg) => {
+    console.error("WebSocket Error:", errorMsg);
+    setError(errorMsg.error || "Error desconocido desde el servidor.");
+  };
+
+  const handleJuegoTerminado = (data) => {
+    console.log("Juego terminado:", data);
+    playVictory();
+    setGanador(data.ganadorName);
+  };
+
+  socket.on('estado_actualizado', handleEstadoActualizado);
+  socket.on('error_juego', handleErrorJuego);
+  socket.on('juego_terminado', handleJuegoTerminado);
+
+  return () => {
+    socket.off('estado_actualizado', handleEstadoActualizado);
+    socket.off('error_juego', handleErrorJuego);
+    socket.off('juego_terminado', handleJuegoTerminado);
+
+    // Salir de la sala de la partida al desmontar
+    if (partidaId) {
+      socket.emit('leave_partida', { partidaId: Number(partidaId) });
+      console.log(`Socket salió de sala partida:${partidaId}`);
     }
+  };
+}, [socket, fetchGameState, user, partidaId]);
 
-    const handleEstadoActualizado = () => {
-      console.log("WebSocket: Estado actualizado. Recargando datos...");
-      fetchGameState(); 
-    };
-
-    const handleErrorJuego = (errorMsg) => {
-      console.error("WebSocket Error:", errorMsg);
-      setError(errorMsg.error || "Error desconocido desde el servidor.");
-    };
-
-    const handleJuegoTerminado = (data) => {
-      console.log("Juego terminado recibido:", data);
-      if (data.ganadorId === user.jugadorId) {
-         playVictory();
-      }      
-      setGanador(data.ganadorName);
-    };
-
-    socket.on('estado_actualizado', handleEstadoActualizado);
-    socket.on('error_juego', handleErrorJuego);
-    socket.on('juego_terminado', handleJuegoTerminado);
-
-    return () => {
-      socket.off('estado_actualizado', handleEstadoActualizado);
-      socket.off('error_juego', handleErrorJuego);
-      socket.off('juego_terminado', handleJuegoTerminado); 
-    };
-  }, [socket, fetchGameState, user]); 
 
   const handleConfirmarRefuerzos = () => {
     if (tropasRestantes !== 0) {
