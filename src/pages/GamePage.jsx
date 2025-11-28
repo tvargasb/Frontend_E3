@@ -436,7 +436,7 @@ function GamePage() {
   const territoriosEnMapa = estadosTerritorios.map((estado) => {
     return {
       territorioId: estado.territorioId,
-      nombre: estado.Territorio?.nombre || 'Territorio desconocido',
+      nombre: estado.Territorio?.name || 'Territorio desconocido',
       sistema: estado.Territorio?.sistemaGalactico || 'Sistema desconocido',
       jugadorId: estado.jugadorId,
       jugadorNombre: jugadoresPorId[estado.jugadorId]?.name || 'Jugador desconocido',
@@ -472,7 +472,7 @@ function GamePage() {
       <div className="game-main">
         <div className="map-container">
           {territoriosEnMapa.map((territorio) => {
-            const stylePos = MAPA_POSICIONES[territorio.nombre] || '1 / 1 / span 1 / span 1';
+            const stylePos = MAPA_POSICIONES[territorio.name] || '1 / 1 / span 1 / span 1';
             const esMio = territorio.jugadorId === user.jugadorId;
             const esOrigen = territorioOrigen?.territorioId === territorio.territorioId;
             const esDestino = territorioDestino?.territorioId === territorio.territorioId;
@@ -490,7 +490,7 @@ function GamePage() {
                 style={{ gridArea: stylePos }}
                 onClick={() => handleClickTerritorio(territorio)}
               >
-                <div className="territorio-nombre">{territorio.nombre}</div>
+                <div className="territorio-nombre">{territorio.name}</div>
                 <div className="territorio-jugador">{territorio.jugadorNombre}</div>
                 <div className="territorio-tropas">Tropas: {territorio.cantidadTropas}</div>
                 {refuerzoPlanificado && (
