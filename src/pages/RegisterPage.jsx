@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../assets/styles/Forms.css';
-
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
-
 function RegisterPage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,7 +19,7 @@ function RegisterPage() {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/jugadores`, { 
+      const response = await fetch(`${API_BASE_URL}/auth/register`, { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -31,7 +29,7 @@ function RegisterPage() {
           email,
           password,
           rol: 'user',
-          estado: 'activo',
+          estado: 'activo' 
         }),
       });
 
@@ -45,7 +43,7 @@ function RegisterPage() {
       navigate('/login'); 
 
     } catch (err) {
-      setError(err.message || 'Error al registrar. Intenta de nuevo.');
+      setError(err.message);
     }
   };
 

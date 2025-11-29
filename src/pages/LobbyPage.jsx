@@ -28,12 +28,12 @@ function LobbyPage() {
   const fetchPartidas = useCallback(async () => { 
     setLoading(true);
     setError(null);
-  
+
     if (!user || !user.jugadorId) {
         setLoading(false);
         return; 
     }
-  
+
     try {
       const response = await fetch(`${API_BASE_URL}/partidas`, {
         method: 'GET',
@@ -42,44 +42,36 @@ function LobbyPage() {
           'Authorization': `Bearer ${token}`
         }
       });
-  
-      const data = await response.json();  // 👈 SOLO una vez
-  
+
+
       if (!response.ok) {
+        const data = await response.json(); 
         throw new Error(data.error || 'No se pudieron cargar las partidas.');
       }
-  
+      
+      const data = await response.json(); 
+
       const misActivas = data.filter(partida =>
         partida.estado === 'en_progreso' &&
         partida.Jugadors.some(j => j.id === user.jugadorId)
       );
       setPartidasActivas(misActivas);
-  
+
       const disponibles = data.filter(partida => partida.estado === 'lobby');
       setPartidasLobby(disponibles);
-  
+
     } catch (err) {
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  }, [token, user]);
-  
+  }, [token, user, navigate]);
+
   useEffect(() => {
-    if (!socket) return;
-  
-    const handlePartidasActualizadas = () => {
-      console.log("Socket: partidas_actualizadas → recargando lobby");
+    if (user) { 
       fetchPartidas();
-    };
-  
-    socket.on('partidas_actualizadas', handlePartidasActualizadas);
-  
-    return () => {
-      socket.off('partidas_actualizadas', handlePartidasActualizadas);
-    };
-  }, [socket, fetchPartidas]);
-  
+    }
+  }, [user, fetchPartidas]);
 
   const handleCrearPartida = async () => {
     if (!user || !user.jugadorId) {

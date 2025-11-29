@@ -13,6 +13,7 @@ import swordSfx from '../assets/sounds/sword.wav';
 import victorySfx from '../assets/sounds/victory.mp3';
 import notifySfx from '../assets/sounds/notification.wav';
 
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 const MAPA_POSICIONES = {
@@ -29,30 +30,31 @@ const MAPA_POSICIONES = {
   // SISTEMA KASHYYYK
   // Ocupan filas 3-5, columnas 11-14
   'Trandosha': '3 / 11 / span 1 / span 1',   
-  'Felucia': '3 / 12 / span 1 / span 1',     
-  'Sullust': '4 / 11 / span 1 / span 1',     
-  'Kashyyyk': '4 / 12 / span 2 / span 2',    
+  'Kashyyyk': '3 / 12 / span 2 / span 2',     
+  'Alaris Prime': '5 / 11 / span 1 / span 2', 
+  'Worrroz': '5 / 13 / span 1 / span 1',    
 
   // SISTEMA NABOO
-  // Ocupan filas 6-8, columnas 13-16
-  'Mandalore': '6 / 13 / span 1 / span 1',   
-  'Dathomir': '7 / 13 / span 1 / span 1',    
-  'Naboo': '7 / 14 / span 2 / span 3',       
+  // Ocupan filas 4-6, columnas 1-4
+  'Naboo': '4 / 2 / span 2 / span 2',        
+  "Ohma-D'un": '4 / 1 / span 1 / span 1',     
+  'Veris Hydromea': '5 / 4 / span 1 / span 1',
+  'Rori': '6 / 2 / span 1 / span 2',       
 
   // SISTEMA CORUSCANT
-  // Ocupan filas 6-9, columnas 6-10
-  'Alderaan': '6 / 6 / span 1 / span 2',     
-  'Coruscant': '7 / 6 / span 2 / span 2',    
-  'Jedha': '7 / 8 / span 1 / span 1',        
-  'Corellia': '8 / 8 / span 1 / span 1',     
-  'Bespin': '9 / 7 / span 1 / span 2',       
+  // Ocupan filas 4-7, columnas 6-9
+  'Coruscant': '4 / 7 / span 2 / span 2',     
+  'Alsakan': '4 / 6 / span 1 / span 1',      
+  'Chandrila': '4 / 9 / span 1 / span 1',     
+  'Kuat': '6 / 7 / span 1 / span 1',          
+  'Corellia': '5 / 5 / span 2 / span 1',     
+  'Hosnian Prime': '5 / 9 / span 2 / span 1', 
 
   // SISTEMA MUSTAFAR
-  // Ocupan filas 10-12, columnas 9-13
-  'Scarif': '10 / 9 / span 1 / span 2',      
-  'Mustafar': '11 / 9 / span 2 / span 2',    
-  'Lothal': '11 / 11 / span 1 / span 1',     
-  'Yavin 4': '12 / 11 / span 1 / span 1',    
+  // Ocupan filas 8-10
+  'Mustafar': '8 / 4 / span 2 / span 2',     
+  'Sullust': '8 / 6 / span 1 / span 1',       
+  'Nevarro': '9 / 3 / span 1 / span 1',       
 };
 
 function GamePage() {
@@ -103,46 +105,34 @@ function GamePage() {
   const fetchGameState = useCallback(async () => {
     setLoading(true); 
     setError(null);   
-  
+
     if (!token || !partidaId || !user?.jugadorId) {
       if (!token) setError("Error de autenticación. Intenta recargar.");
       setLoading(false);
       return;
     }
-  
+
     try {
       const partidaResponse = await fetch(`${API_BASE_URL}/partidas/${partidaId}`, {
         method: 'GET',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-  
-      const partidaData = await partidaResponse.json();
-  
       if (!partidaResponse.ok) {
-        throw new Error(partidaData.error || 'No se pudo cargar la partida.');
+        const data = await partidaResponse.json();
+        throw new Error(data.error || 'No se pudo cargar la partida.');
       }
-  
+      const partidaData = await partidaResponse.json();
       setPartida(partidaData);
-  
-      // Misión asignada a este jugador en esta partida
-      const misionResponse = await fetch(
-        `${API_BASE_URL}/misiones?partidaId=${partidaId}&jugadorId=${user.jugadorId}`,
-        {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` }
-        }
-      );
-  
+
+      const misionResponse = await fetch(`${API_BASE_URL}/misiones?partidaId=${partidaId}&jugadorId=${user.jugadorId}`, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       if (misionResponse.ok) {
         const misionData = await misionResponse.json();
-        if (Array.isArray(misionData) && misionData.length > 0) {
-          setMiMision(misionData[0]);
-        } else {
-          setMiMision(null);
-        }
-      } else {
-        setMiMision(null);
+        if (misionData.length > 0) setMiMision(misionData[0]);
       }
+      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -166,79 +156,90 @@ function GamePage() {
           datosJugada: datos
         })
       });
-  
       const data = await response.json();
-  
       if (!response.ok) {
         throw new Error(data.error || `Error al ${tipo}`);
       }
-  
+
       if (tipo === 'ATACAR' && data.resultado?.combate) {
         playSword();
         setResultadoCombate(data.resultado.combate);
       }
-  
+
       if (data.gameOver) {
         playVictory();
         setGanador(data.ganadorName || user.name);
         return;
       }
-  
+      
       setTerritorioOrigen(null);
       setTerritorioDestino(null);
-  
-      await fetchGameState();
     } catch (err) {
       setError(err.message); 
     }
   };
 
+
   useEffect(() => {
     if (user !== undefined) { 
-      fetchGameState();
+        fetchGameState();
     }
   }, [fetchGameState, user]); 
 
   useEffect(() => {
     if (socket && user?.jugadorId) {
-      socket.emit('register', user.jugadorId);
-      console.log(`Socket registrado para jugador ${user.jugadorId}`);
+        socket.emit('register', user.jugadorId);
+        console.log(`Socket registrado para jugador ${user.jugadorId}`);
     }
   }, [socket, user?.jugadorId]);
 
-  // Notificar turno al jugador
+  // Notificar turno
+useEffect(() => {
+  if (!partida || !user) return;
+
+  const esMiTurnoAhora = partida.turnoActualId === user.jugadorId;
+
+  if (isFirstRender.current) {
+    isFirstRender.current = false; 
+    return; 
+  }
+  if (esMiTurnoAhora) {
+     playNotify();
+     setTurnoNotificacion("🚀 ¡Es tu turno, Comandante! 🚀");
+  }
+
+}, [partida?.turnoActualId, user?.jugadorId, playNotify]); 
+
+  
+  // Efecto para que mensaje de error dure 3 seg
   useEffect(() => {
-    if (!partida || !user?.jugadorId) return;
-
-    if (partida.turnoActualId === user.jugadorId) {
-      if (isFirstRender.current) {
-        isFirstRender.current = false;
-        setTurnoNotificacion(partida.turnoActualId);
-        return;
-      }
-      if (turnoNotificacion !== partida.turnoActualId) {
-        playNotify();
-        setTurnoNotificacion(partida.turnoActualId);
-      }
+    if (error) {
+      const timer = setTimeout(() => {
+        setError(null);
+      }, 3000); 
+      return () => clearTimeout(timer);
     }
-  }, [partida, user?.jugadorId, playNotify, turnoNotificacion]);
+  }, [error]);
 
+  useEffect(() => {
+    if (turnoNotificacion) {
+      const timer = setTimeout(() => {
+        setTurnoNotificacion(null);
+      }, 3000); 
+      return () => clearTimeout(timer);
+    }
+  }, [turnoNotificacion]);
+  
   // Configuración de listeners de WebSockets
   useEffect(() => {
     if (!socket) return; 
 
     if (user?.jugadorId) {
-      socket.emit('register', user.jugadorId);
-      console.log(`Socket registrado para jugador ${user.jugadorId}`);
+        socket.emit('register', user.jugadorId);
     }
 
-    if (partidaId) {
-      socket.emit('join_partida', { partidaId: Number(partidaId) });
-      console.log(`Socket unido a sala partida:${partidaId}`);
-    }
-
-    const handleEstadoActualizado = (payload) => {
-      console.log("WebSocket: Estado actualizado. Recargando datos...", payload);
+    const handleEstadoActualizado = () => {
+      console.log("WebSocket: Estado actualizado. Recargando datos...");
       fetchGameState(); 
     };
 
@@ -248,8 +249,10 @@ function GamePage() {
     };
 
     const handleJuegoTerminado = (data) => {
-      console.log("Juego terminado:", data);
-      playVictory();
+      console.log("Juego terminado recibido:", data);
+      if (data.ganadorId === user.jugadorId) {
+         playVictory();
+      }      
       setGanador(data.ganadorName);
     };
 
@@ -260,259 +263,312 @@ function GamePage() {
     return () => {
       socket.off('estado_actualizado', handleEstadoActualizado);
       socket.off('error_juego', handleErrorJuego);
-      socket.off('juego_terminado', handleJuegoTerminado);
-
-      if (partidaId) {
-        socket.emit('leave_partida', { partidaId: Number(partidaId) });
-        console.log(`Socket salió de sala partida:${partidaId}`);
-      }
+      socket.off('juego_terminado', handleJuegoTerminado); 
     };
-  }, [socket, fetchGameState, user, partidaId, playVictory]);
+  }, [socket, fetchGameState, user]); 
 
-  const handleClickTerritorio = (territorio) => {
-    if (!esMiTurno) {
+  const handleConfirmarRefuerzos = () => {
+    if (tropasRestantes !== 0) {
+      setError(`Debes asignar TODAS tus tropas. Te faltan ${tropasRestantes}.`);
+      return;
+    }
+    enviarJugada('REFORZAR', refuerzosPlan);
+    setRefuerzosPlan([]); 
+  };
+
+  const handleResetearRefuerzos = () => {
+    setRefuerzosPlan([]); 
+  };
+
+  const handleTerritorioClick = (territorio) => {
+    if (!esMiTurno) { 
       setError("No es tu turno.");
       return;
     }
+    setError(null);
+    setTerritorioDestino(null);
 
     if (faseActual === 'REFORZAR') {
       if (territorio.jugadorId !== user.jugadorId) {
-        setError("Solo puedes asignar refuerzos a tus propios territorios.");
+        setError("Solo puedes reforzar tus propios territorios.");
         return;
       }
 
-      const yaPlanificado = refuerzosPlan.find(p => p.territorioId === territorio.territorioId);
-      const cantidad = 1; 
+      if (tropasRestantes <= 0) {
+        setError("Ya has asignado todas tus tropas. Pulsa 'Confirmar' o 'Resetear'.");
+        return;
+      }
 
-      setRefuerzosPlan((prevPlan) => {
-        if (yaPlanificado) {
-          return prevPlan.map(p =>
-            p.territorioId === territorio.territorioId 
-              ? { ...p, tropas: p.tropas + cantidad } 
-              : p
-          );
-        } else {
+      const input = prompt(`¿Cuántas tropas añadir a ${territorio.Territorio.name}? (Disponibles: ${tropasRestantes})`);
+      const cantidad = Number(input);
+
+      if (input && !isNaN(cantidad) && cantidad > 0) {
+        if (cantidad > tropasRestantes) {
+          setError(`Solo te quedan ${tropasRestantes} tropas.`);
+          return;
+        }
+
+        setRefuerzosPlan(prevPlan => {
+          const existente = prevPlan.find(p => p.territorioId === territorio.territorioId);
+          if (existente) {
+            return prevPlan.map(p => 
+              p.territorioId === territorio.territorioId 
+                ? { ...p, tropas: p.tropas + cantidad } 
+                : p
+            );
+          }
           return [...prevPlan, { territorioId: territorio.territorioId, tropas: cantidad }];
-        }
-      });
-      return;
-    }
+        });
+      }
 
-    if (modoAccion === 'ATACAR') {
+    } else if (faseActual === 'JUEGO') { 
       if (!territorioOrigen) {
         if (territorio.jugadorId !== user.jugadorId) {
-          setError("Debes elegir un territorio tuyo como origen del ataque.");
+          setError("Debes seleccionar un territorio propio como origen.");
+          return;
+        }
+        if (modoAccion === 'ATACAR' && territorio.cantidadTropas < 2) {
+          setError("Necesitas al menos 2 tropas para atacar desde aquí.");
+          return;
+        }
+        if (modoAccion === 'MANIOBRAR' && territorio.cantidadTropas < 2) {
+          setError("Necesitas al menos 2 tropas para maniobrar (debes dejar 1).");
           return;
         }
         setTerritorioOrigen(territorio);
-        setError(null);
-      } else if (!territorioDestino) {
-        if (territorio.territorioId === territorioOrigen.territorioId) {
-          setTerritorioOrigen(null);
-          setError(null);
-          return;
-        }
-        if (territorio.jugadorId === user.jugadorId) {
-          setError("Debes elegir un territorio enemigo como destino.");
-          return;
-        }
-        setTerritorioDestino(territorio);
-        setError(null);
+        
       } else {
-        setTerritorioOrigen(territorio);
-        setTerritorioDestino(null);
-        setError(null);
+        const origenId = territorioOrigen.territorioId;
+        const destinoId = territorio.territorioId;
+
+        if (origenId === destinoId) { 
+            setTerritorioOrigen(null); 
+            return;
+        }
+
+        if (modoAccion === 'ATACAR') {
+          if (territorio.jugadorId === user.jugadorId) {
+            setError("Has seleccionado otro territorio propio. Elige un enemigo adyacente o cancela.");
+            setTerritorioOrigen(territorio); 
+          } else {
+            enviarJugada('ATACAR', { origenId, destinoId });
+          }
+        } 
+        
+        else if (modoAccion === 'MANIOBRAR') {
+          if (territorio.jugadorId !== user.jugadorId) {
+            setError("El destino de la maniobra debe ser un territorio propio.");
+          } else {
+            const tropasMax = territorioOrigen.cantidadTropas - 1;
+            const tropas = prompt(`¿Cuántas tropas mover a ${territorio.Territorio.name}? (Máx: ${tropasMax})`);
+            const tropasNum = Number(tropas);
+            if (tropas && !isNaN(tropasNum) && tropasNum > 0 && tropasNum <= tropasMax) {
+              enviarJugada('MANIOBRAR', { 
+                  origenManiobraId: origenId, 
+                  destinoManiobraId: destinoId,
+                  tropasManiobra: tropasNum
+              });
+            } else {
+              setError(`Cantidad inválida. Debes mover entre 1 y ${tropasMax} tropas.`);
+            }
+          }
+        }
       }
-    } else if (modoAccion === 'MANIOBRAR') {
-      if (!territorioOrigen) {
-        if (territorio.jugadorId !== user.jugadorId) {
-          setError("Solo puedes maniobrar tropas entre tus propios territorios.");
-          return;
-        }
-        setTerritorioOrigen(territorio);
-        setError(null);
-      } else if (!territorioDestino) {
-        if (territorio.territorioId === territorioOrigen.territorioId) {
-          setTerritorioOrigen(null);
-          setError(null);
-          return;
-        }
-        if (territorio.jugadorId !== user.jugadorId) {
-          setError("Solo puedes mover tropas hacia otro territorio que también sea tuyo.");
-          return;
-        }
-        setTerritorioDestino(territorio);
-        setError(null);
-      } else {
-        setTerritorioOrigen(territorio);
-        setTerritorioDestino(null);
-        setError(null);
-      }
-    }
+    } 
   };
 
-  const confirmarRefuerzos = async () => {
-    if (!esMiTurno) {
-      setError("No es tu turno.");
-      return;
-    }
-
-    if (tropasRestantes !== 0) {
-      setError(`Debes asignar exactamente ${tropasBase} tropas. Te faltan ${tropasRestantes * -1} o te sobran.`);
-      return;
-    }
-
-    try {
-      await enviarJugada('REFORZAR', refuerzosPlan);
-      setRefuerzosPlan([]);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const ejecutarAtaque = async () => {
-    if (!esMiTurno) {
-      setError("No es tu turno.");
-      return;
-    }
-
-    if (!territorioOrigen || !territorioDestino) {
-      setError("Debes seleccionar un territorio de origen y uno de destino para atacar.");
-      return;
-    }
-
-    const datosAtaque = {
-      origenId: territorioOrigen.territorioId,
-      destinoId: territorioDestino.territorioId
-    };
-
-    await enviarJugada('ATACAR', datosAtaque);
-  };
-
-  const ejecutarManiobra = async () => {
-    if (!esMiTurno) {
-      setError("No es tu turno.");
-      return;
-    }
-
-    if (!territorioOrigen || !territorioDestino) {
-      setError("Debes seleccionar territorio origen y destino para maniobrar.");
-      return;
-    }
-    const tropasManiobra = Number(prompt("¿Cuántas tropas quieres mover?"));
-
-    if (!tropasManiobra || tropasManiobra <= 0) {
-      setError("Debes ingresar una cantidad válida de tropas.");
-      return;
-    }
-
-    const datosManiobra = {
-      origenManiobraId: territorioOrigen.territorioId,
-      destinoManiobraId: territorioDestino.territorioId,
-      tropasManiobra
-    };
-
-    await enviarJugada('MANIOBRAR', datosManiobra);
-  };
-
-  const finalizarTurno = async () => {
-    if (!esMiTurno) {
-      setError("No es tu turno.");
-      return;
-    }
-    await enviarJugada('FINALIZAR_TURNO', {});
+  const handleFinalizarTurno = () => {
+    enviarJugada('FINALIZAR_TURNO', {});
+    setTerritorioOrigen(null); 
+    setTerritorioDestino(null);
     setModoAccion('ATACAR'); 
   };
 
   if (loading) return <p>Cargando partida...</p>;
-  if (!partida || !user) return <p>No se pudieron cargar los datos de la partida o del jugador.</p>;
-
-  const estadosTerritorios = partida.EstadoTerritorioEnPartidas || [];
-  const jugadoresPorId = (partida.Jugadors || []).reduce((acc, j) => {
-    acc[j.id] = j;
-    return acc;
-  }, {});
-
-  const territoriosEnMapa = estadosTerritorios.map((estado) => {
-    return {
-      territorioId: estado.territorioId,
-      name: estado.Territorio?.name || 'Territorio desconocido',
-      sistema: estado.Territorio?.sistemaGalactico || 'Sistema desconocido',
-      jugadorId: estado.jugadorId,
-      jugadorNombre: jugadoresPorId[estado.jugadorId]?.name || 'Jugador desconocido',
-      cantidadTropas: estado.cantidadTropas,
-    };
-  });
-
+  if (!partida || !user) return <p>No se pudieron cargar los datos de la partida o del usuario.</p>;
+  
   return (
-    <div className="game-page">
-      {ganador && <Confetti />}
+    <div className="game-page-container">
 
-      <GameDashboard
-        partida={partida}
-        user={user}
-        esMiTurno={esMiTurno}
-        jugadorEnTurno={jugadorEnTurno}
-        miInfoJugador={miInfoJugador}
-        tropasBase={tropasBase}
-        tropasAsignadas={tropasAsignadas}
-        tropasRestantes={tropasRestantes}
-        refuerzosPlan={refuerzosPlan}
-        confirmarRefuerzos={confirmarRefuerzos}
-        modoAccion={modoAccion}
-        setModoAccion={setModoAccion}
-        territorioOrigen={territorioOrigen}
-        territorioDestino={territorioDestino}
-        ejecutarAtaque={ejecutarAtaque}
-        ejecutarManiobra={ejecutarManiobra}
-        finalizarTurno={finalizarTurno}
-        error={error}
-      />
+      {ganador && (
+        <Confetti 
+          width={window.innerWidth} 
+          height={window.innerHeight} 
+          style={{ zIndex: 10000, pointerEvents: 'none' }} 
+        />
+      )}
 
-      <div className="game-main">
-        <div className="map-container">
-          {territoriosEnMapa.map((territorio) => {
-            const stylePos = MAPA_POSICIONES[territorio.name] || '1 / 1 / span 1 / span 1';
-            const esMio = territorio.jugadorId === user.jugadorId;
-            const esOrigen = territorioOrigen?.territorioId === territorio.territorioId;
-            const esDestino = territorioDestino?.territorioId === territorio.territorioId;
-            const refuerzoPlanificado = refuerzosPlan.find(p => p.territorioId === territorio.territorioId);
-
-            return (
-              <div
-                key={territorio.territorioId}
-                className={[
-                  'territorio',
-                  esMio ? 'territorio-mio' : 'territorio-enemigo',
-                  esOrigen ? 'territorio-origen' : '',
-                  esDestino ? 'territorio-destino' : '',
-                ].join(' ')}
-                style={{ gridArea: stylePos }}
-                onClick={() => handleClickTerritorio(territorio)}
-              >
-                <div className="territorio-nombre">{territorio.name}</div>
-                <div className="territorio-jugador">{territorio.jugadorNombre}</div>
-                <div className="territorio-tropas">Tropas: {territorio.cantidadTropas}</div>
-                {refuerzoPlanificado && (
-                  <div className="territorio-refuerzo">
-                    +{refuerzoPlanificado.tropas}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <GameChat partidaId={partidaId} />
-      </div>
-
-      {miMision && (
-        <div className="mission-panel">
-          <h3>Tu Misión Secreta</h3>
-          <p>{miMision.Mision?.descripcion || 'Cargando misión...'}</p>
+      <h1>Partida #{partida.id}</h1>
+      {error && (
+        <div className="error-toast" onClick={() => setError(null)}>
+          ⚠️ {error}
         </div>
       )}
 
+      {turnoNotificacion && (
+        <div className="turn-toast" onClick={() => setTurnoNotificacion(null)}>
+          🔔 {turnoNotificacion}
+        </div>
+      )}
+
+      {/* Barra de Estado */}
+      <div className="game-status-bar">
+        <div>
+          <strong>Turno de:</strong> {jugadorEnTurno ? jugadorEnTurno.name : 'N/A'} {esMiTurno ? "(¡Es tu turno!)" : ""}
+        </div>
+        {esMiTurno && (
+          <div>
+            {faseActual === 'REFORZAR' && (
+            <div className="reinforcement-panel">
+              <p><strong>FASE: REFORZAR</strong></p>
+              <p>Tropas totales: {tropasBase}</p>
+              <p style={{ color: 'cyan', fontSize: '1.2em' }}>
+                Por asignar: <strong>{tropasRestantes}</strong>
+              </p>
+              
+              <div className="botones-refuerzo">
+                <button 
+                  onClick={handleConfirmarRefuerzos} 
+                  disabled={tropasRestantes > 0} 
+                  style={{ backgroundColor: tropasRestantes === 0 ? '#4cd964' : 'gray' }}
+                >
+                  Confirmar y Enviar
+                </button>
+                <button onClick={handleResetearRefuerzos} style={{backgroundColor: '#ff6b6b'}}>
+                  Borrar Selección
+                </button>
+              </div>
+              <p className="nota-ayuda">Haz clic en tus territorios para repartir tropas.</p>
+            </div>
+          )}
+          </div>
+        )}
+      </div>
+
+      {/* EL TABLERO */}
+      <div className="game-board">
+        {partida.EstadoTerritorioEnPartidas && partida.EstadoTerritorioEnPartidas.map(estadoTerritorio => {
+          
+          // Validación de seguridad
+          if (!estadoTerritorio.Territorio) {
+             console.warn("Datos de territorio incompletos:", estadoTerritorio);
+             return null; 
+          }
+
+          const nombreTerritorio = estadoTerritorio.Territorio.name;
+          const pos = MAPA_POSICIONES[nombreTerritorio];
+
+          
+
+          // Logica de Clases CSS
+          let clasesCSS = "territorio-celda";
+          if (estadoTerritorio.jugadorId === user.jugadorId) {
+            clasesCSS += ' territorio-propio';
+          } else {
+            clasesCSS += ' territorio-enemigo';
+          }
+
+          if (territorioOrigen?.id === estadoTerritorio.id) {
+            clasesCSS += ' selected-origen';
+          }
+
+          const planParaEste = refuerzosPlan.find(p => p.territorioId === estadoTerritorio.territorioId);
+          const tropasExtra = planParaEste ? planParaEste.tropas : 0;
+
+          return (
+            <div 
+              key={estadoTerritorio.id}
+              className={clasesCSS} 
+              onClick={() => handleTerritorioClick(estadoTerritorio)}
+              style={{ '--posicion-mapa': pos }}
+            >
+              <p className="terr-nombre">{nombreTerritorio}</p>
+              <p className="terr-tropas">
+                {estadoTerritorio.cantidadTropas}
+                {tropasExtra > 0 && <span style={{color: '#4cd964'}}> +{tropasExtra}</span>}
+            </p>
+              <p className="terr-dueño">
+                ({partida.Jugadors.find(j => j.id === estadoTerritorio.jugadorId)?.name})
+              </p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* PANEL DE ACCIONES */}
+      {esMiTurno && (
+        <div className="action-panel">
+          <h3>Tus Acciones:</h3>
+          
+          {faseActual === 'REFORZAR' && (
+            <div>
+              <p><strong>FASE: REFORZAR</strong> (Tropas restantes: {miInfoJugador?.tropasParaReforzar || 0})</p>
+              <p>Haz clic en tus territorios para añadir tropas.</p>
+              <button 
+                onClick={handleFinalizarTurno} 
+                disabled={miInfoJugador?.tropasParaReforzar > 0} 
+              >
+                Finalizar Turno
+              </button>
+              <p className="nota-ayuda">
+                (Debes asignar todas las tropas antes de atacar)
+              </p>
+            </div>
+          )}
+          
+          {faseActual === 'JUEGO' && (
+            <div>
+              <p><strong>FASE: JUGAR</strong> (Turno de {jugadorEnTurno?.name})</p>
+              
+              <div className="botones-accion">
+                <button 
+                  onClick={() => setModoAccion('ATACAR')}
+                  className={modoAccion === 'ATACAR' ? 'btn-activo' : ''} 
+                >
+                  Atacar
+                </button>
+                <button 
+                  onClick={() => setModoAccion('MANIOBRAR')}
+                  className={modoAccion === 'MANIOBRAR' ? 'btn-activo' : ''} 
+                >
+                  Maniobrar
+                </button>
+                <button onClick={handleFinalizarTurno}>
+                  Finalizar Turno
+                </button>
+              </div>
+              
+              <p className="read-the-docs">
+                {modoAccion === 'ATACAR' && !territorioOrigen && "Haz clic en tu territorio de origen (debe tener > 1 tropa)."}
+                {modoAccion === 'ATACAR' && territorioOrigen && `Origen: ${territorioOrigen.Territorio.name}. Haz clic en un enemigo adyacente.`}
+                {modoAccion === 'MANIOBRAR' && !territorioOrigen && "Haz clic en tu territorio de origen (debe tener > 1 tropa)."}
+                {modoAccion === 'MANIOBRAR' && territorioOrigen && `Origen: ${territorioOrigen.Territorio.name}. Haz clic en un territorio propio conectado.`}
+                {territorioOrigen && <button onClick={() => setTerritorioOrigen(null)}>Cancelar Selección</button>}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="game-sidebar"> 
+          <GameDashboard 
+            partida={partida} 
+            usuarioActualId={user?.jugadorId} 
+          />
+          
+          <GameChat 
+            partidaId={partida.id} 
+            usuarioNombre={user?.name || "Jugador"} 
+          />
+      </div>
+
+      {/* Misión Secreta */}
+      {miMision && (
+        <div className="mision-secreta">
+          <h4>Tu Misión Secreta:</h4>
+          <p>{miMision.Mision?.descripcion || 'Cargando misión...'}</p>
+        </div>
+      )}
       {ganador && (
         <div className="game-over-overlay">
           <div className="game-over-card">
@@ -529,22 +585,35 @@ function GamePage() {
       {/* RESULTADO DE COMBATE */}
       {resultadoCombate && (
         <div className="combat-modal-overlay">
-          <div className="combat-modal">
-            <h2>Resultado del Combate</h2>
+          <div className={`combat-card ${resultadoCombate.territorioEsConquistado ? 'conquista' : 'defensa'}`}>
+            <h2>⚔️ Reporte de Batalla ⚔️</h2>
+            
             <div className="dados-container">
-              <div>
+              <div className="bando atacante">
                 <h3>Atacante</h3>
-                <p>Dados: {resultadoCombate.dadosAtacante.join(', ')}</p>
-                <p>Pérdidas: {resultadoCombate.perdidasDeAtacante}</p>
+                <div className="dados">
+                  {resultadoCombate.dadosAtacante.map((dado, i) => (
+                    <span key={i} className="dado dado-rojo">{dado}</span>
+                  ))}
+                </div>
+                <p>Tropas Pérdidas: {resultadoCombate.perdidasDeAtacante}</p>
               </div>
-              <div>
+
+              <div className="vs">VS</div>
+
+              <div className="bando defensor">
                 <h3>Defensor</h3>
-                <p>Dados: {resultadoCombate.dadosDefensor.join(', ')}</p>
-                <p>Pérdidas: {resultadoCombate.perdidasDeDefensor}</p>
+                <div className="dados">
+                  {resultadoCombate.dadosDefensor.map((dado, i) => (
+                    <span key={i} className="dado dado-blanco">{dado}</span>
+                  ))}
+                </div>
+                <p>Tropas Pérdidas: {resultadoCombate.perdidasDeDefensor}</p>
               </div>
             </div>
+
             <div className="resultado-final">
-              {resultadoCombate.territorioEsConquistado
+              {resultadoCombate.territorioEsConquistado 
                 ? <h3>🎉 ¡TERRITORIO CONQUISTADO! 🎉</h3> 
                 : <h3>🛡️ El defensor resistió. 🛡️</h3>
               }
@@ -555,6 +624,7 @@ function GamePage() {
         </div>
       )}
     </div>
+    
   );
 }
 
